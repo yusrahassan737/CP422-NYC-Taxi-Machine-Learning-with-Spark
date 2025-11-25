@@ -39,3 +39,36 @@ from pyspark.ml.evaluation import RegressionEvaluator
 
 evaluator = RegressionEvaluator(labelCol="fare_amount", predictionCol="prediction", metricName="rmse")
 rmse = evaluator.evaluate(predictions)
+
+
+#2b)b)
+
+feature_cols = ["pickup_hour", "day_of_week", "trip_distance", "trip_duration"]
+
+train_df, test_df = df.randomSplit([0.7, 0.3], seed=42)
+assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
+scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
+
+dt = DecisionTreeClassifier(
+    featuresCol="scaled_features",
+    labelCol="high_fare"
+)
+
+dt_pipeline = Pipeline(stages=[assembler, scaler, dt])
+dt_param_grid = (
+    ParamGridBuilder()
+    .addGrid(dt.maxDepth, [3, 5, 10])
+    .addGrid(dt.minInstancesPerNode, [1, 5, 10])
+    .build()
+)
+
+dt_evaluator = MulticlassClassificationEvaluator(
+    labelCol="high_fare", predictionCol="prediction", metricName="f1"
+)
+
+dt_cv = CrossValidator(
+    estimator=dt_pipeline,
+    estimatorParamMaps=dt_param_grid,
+    evaluator=dt_evaluator,
+    numFolds=3
+)
