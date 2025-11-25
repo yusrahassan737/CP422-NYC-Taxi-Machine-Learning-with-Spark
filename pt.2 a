@@ -1,0 +1,41 @@
+from pyspark.sql.functions import hour, dayofweek, col, unix_timestamp
+from pyspark.ml.feature import VectorAssembler
+from pyspark.sql.types import DoubleType, IntegerType
+
+# Load dataset
+df = spark.read.format("csv").option("header", "true").load("/Volumes/workspace/default/yellow_tripdata_2015_01")
+
+df = df.withColumn("tpep_pickup_datetime", col("tpep_pickup_datetime").cast("timestamp"))
+df = df.withColumn("tpep_dropoff_datetime", col("tpep_dropoff_datetime").cast("timestamp"))
+df = df.withColumn("trip_duration",
+    ((unix_timestamp(col("tpep_dropoff_datetime")) - unix_timestamp(col("tpep_pickup_datetime"))) / 60)
+    .cast(DoubleType()))
+df = df.withColumn("pickup_hour", hour(col("tpep_pickup_datetime")).cast(IntegerType()))
+df = df.withColumn("day_of_week", dayofweek(col("tpep_pickup_datetime")).cast(IntegerType()))
+df = df.withColumn("trip_distance", col("trip_distance").cast(DoubleType()))
+df = df.withColumn("fare_amount", col("fare_amount").cast(DoubleType()))
+
+feature_columns = ["pickup_hour", "day_of_week", "trip_distance", "trip_duration"]
+
+assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
+
+df_assembled = assembler.transform(df)
+df_assembled.printSchema()
+train_df, test_df = df_assembled.randomSplit([0.7, 0.3], seed=42)
+train_df.show(5)
+test_df.show(5)
+
+from pyspark.ml.regression import LinearRegression
+
+# pt.2
+
+lr = LinearRegression(featuresCol="features", labelCol="fare_amount")
+lr_model = lr.fit(train_df)
+
+predictions = lr_model.transform(test_df)
+predictions.select("fare_amount", "prediction", "features").show(10, truncate=False)
+
+from pyspark.ml.evaluation import RegressionEvaluator
+
+evaluator = RegressionEvaluator(labelCol="fare_amount", predictionCol="prediction", metricName="rmse")
+rmse = evaluator.evaluate(predictions)
