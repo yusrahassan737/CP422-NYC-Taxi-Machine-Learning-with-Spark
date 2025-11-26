@@ -97,3 +97,23 @@ rf_r2 = r2_eval.evaluate(rf_predictions)
 print("Random Forest RMSE:", rf_rmse)
 print("Random Forest R2:", rf_r2)
 
+
+
+
+#visualizations
+# Sample a small subset for faster plotting
+sample_preds = rf_predictions.select("fare_amount", "prediction").sample(False, 0.02, seed=42).toPandas()
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(6,4))
+plt.scatter(sample_preds["fare_amount"], sample_preds["prediction"], s=5, alpha=0.6)
+plt.xlabel("Actual fare")
+plt.ylabel("Predicted fare")
+plt.title("Actual vs Predicted (Random Forest)")
+plt.plot([sample_preds["fare_amount"].min(), sample_preds["fare_amount"].max()],
+         [sample_preds["fare_amount"].min(), sample_preds["fare_amount"].max()],
+         color='red', linestyle='--')  # optional diagonal reference line
+plt.tight_layout()
+plt.show()
+
